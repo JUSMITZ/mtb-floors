@@ -1,0 +1,10 @@
+{
+  "name": "Remix Remix PISOS DE MTB",
+  "description": "Plataforma de tecnología y recubrimientos de resina epóxica de alta gama. Cotizador inteligente m², visualizador IA de pisos y catálogo industrial de lujo.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
