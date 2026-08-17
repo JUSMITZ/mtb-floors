@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    color: #1C1917;
+  }
+  h1, h2, h3, h4, .font-serif-heading {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  .font-heading {
+    font-family: 'Montserrat', sans-serif;
+  }
+}
+
+/* Architectural Studio Luxury Classes */
+.bg-warm-canvas {
+  background-color: #FAF8F5;
+}
+
+.bg-warm-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E7E5E4;
+}
+
+.text-graphite {
+  color: #1C1917;
+}
+
+.text-warm-muted {
+  color: #78716C;
+}
+
+.bg-tech-grid {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 123, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 123, 255, 0.05) 1px, transparent 1px);
+}
+
+.bg-tech-dots {
+  background-image: radial-gradient(rgba(0, 123, 255, 0.15) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.glow-blue {
+  box-shadow: 0 10px 30px -10px rgba(0, 123, 255, 0.2);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #D6D3D1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #007BFF;
+}
+
+/* Cinematic Veo Video Animations */
+@keyframes panSlow {
+  0% { transform: scale(1.15) translate(-3%, -2%); }
+  50% { transform: scale(1.15) translate(3%, 2%); }
+  100% { transform: scale(1.15) translate(-3%, -2%); }
+}
+
+@keyframes zoomSlow {
+  0% { transform: scale(1.05); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1.05); }
+}
+
+@keyframes sweepSlow {
+  0% { transform: scale(1.15) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(1.5deg); }
+  100% { transform: scale(1.15) rotate(0deg); }
+}
+
+@keyframes orbitSlow {
+  0% { transform: scale(1.18) translate(0%, -2%) rotate(0deg); }
+  25% { transform: scale(1.18) translate(2%, 0%) rotate(0.8deg); }
+  50% { transform: scale(1.18) translate(0%, 2%) rotate(0deg); }
+  75% { transform: scale(1.18) translate(-2%, 0%) rotate(-0.8deg); }
+  100% { transform: scale(1.18) translate(0%, -2%) rotate(0deg); }
+}
+
+@keyframes sheenSweep {
+  0% { transform: translateX(-100%) rotate(15deg); opacity: 0; }
+  30% { opacity: 0.6; }
+  70% { opacity: 0.6; }
+  100% { transform: translateX(100%) rotate(15deg); opacity: 0; }
+}
+
+.animate-pan-slow {
+  animation: panSlow 16s ease-in-out infinite;
+}
+
+.animate-zoom-slow {
+  animation: zoomSlow 14s ease-in-out infinite;
+}
+
+.animate-sweep-slow {
+  animation: sweepSlow 18s ease-in-out infinite;
+}
+
+.animate-orbit-slow {
+  animation: orbitSlow 20s ease-in-out infinite;
+}
+
+.animate-sheen-sweep {
+  animation: sheenSweep 6s ease-in-out infinite;
+}
+
+.bg-radial-vignette {
+  background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.75) 100%);
+}
+
+
