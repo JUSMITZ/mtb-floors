@@ -1,13 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { FLOORING_SYSTEMS, SUBSTRATE_OPTIONS } from '../data/systems';
 import { SubstrateCondition, SystemType, LocationType, QuoteData, QuoteBreakdown, USState } from '../types';
-import { Calculator, Download, Send, CheckCircle2, ShieldCheck, FileText, Sparkles, Building, Phone, Mail, User, MapPin, Tag, MessageSquare, Percent, Truck, Calendar, ChevronDown, FileCheck } from 'lucide-react';
+import { Calculator, Download, Send, CheckCircle2, ShieldCheck, FileText, Sparkles, Building, Phone, Mail, User, MapPin, Tag, MessageSquare, Percent, Truck, Calendar, ChevronDown, FileCheck, ArrowUpRight, DollarSign, Layers, Clock, Award } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { useLanguage } from '../context/LanguageContext';
 
 interface CalculatorProps {
   initialSystemId?: SystemType;
 }
+
+// Utility function for currency formatting
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }) => {
   const { language, t } = useLanguage();
@@ -49,14 +59,15 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
     return SUBSTRATE_OPTIONS.find(s => s.id === substrate) || SUBSTRATE_OPTIONS[0];
   }, [substrate]);
 
-  // Mathematical Calculation Logic with Volume Discount & Logistics Savings in Sq Ft
+  // Enhanced Mathematical Calculation Logic with Precise Pricing Tiers
   const breakdown: QuoteBreakdown = useMemo(() => {
+    // BASE PRICING: Dynamic rate per sq ft ($4.00 - $11.50/sq ft) based on system selection
     const grossBaseCost = squareFeet * selectedSystemObj.basePricePerSqFt;
 
-    // Volume Discount Logic:
-    // < 500 sq ft: 0% discount
-    // 500 sq ft to 2,000 sq ft: 10% discount on base materials & labor
-    // > 2,000 sq ft: 18% discount
+    // VOLUME DISCOUNT LOGIC - Automatic Tier Application:
+    // Tier 1: < 500 sq ft → 0% discount (Residential/Small Commercial)
+    // Tier 2: 500 - 2,000 sq ft → 10% discount (Medium Commercial)
+    // Tier 3: > 2,000 sq ft → 18% discount (Industrial/Large Scale)
     let volumeDiscountPercent = 0;
     if (squareFeet > 2000) {
       volumeDiscountPercent = 18;
@@ -67,16 +78,24 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
     const volumeDiscountAmount = Math.round(grossBaseCost * (volumeDiscountPercent / 100));
     const baseSystemCost = grossBaseCost - volumeDiscountAmount;
 
-    // Substrate Logistics Discount Logic:
-    // If substrate is 'concrete_cracked' or 'old_paint' AND surface > 1000 sq ft, extra prep cost decreases by 15%
+    // SUBSTRATE PREPARATION (Variable B) - Acondicionamiento del Sustrato:
+    // Concrete Cracks: +$1.25/sq ft (V-groove + steel staples + epoxy filler)
+    // Old Paint: +$1.00/sq ft (Heavy diamond grinding removal)
+    // Ceramic Tile: +$1.75/sq ft (Glaze scarification + quartz tie-coat)
+    // LOGISTICS DISCOUNT: If area > 1,000 sq ft and substrate requires prep, apply 15% savings
     let prepRate = selectedSubstrateObj.extraPrepCostPerSqFt;
-    const substratePrepDiscountApplied = (substrate === 'concrete_cracked' || substrate === 'old_paint') && squareFeet > 1000;
+    const substratePrepDiscountApplied = 
+      (substrate === 'concrete_cracked' || substrate === 'old_paint' || substrate === 'existing_tiles') 
+      && squareFeet > 1000;
+    
     if (substratePrepDiscountApplied) {
-      prepRate = prepRate * 0.85;
+      prepRate = prepRate * 0.85; // 15% logistics efficiency discount
     }
     const substratePrepCost = Math.round(squareFeet * prepRate);
 
-    // Location Factor: Outdoor requires UV polyaspartic topcoat (+20% on base)
+    // LOCATION FACTOR (Variable D) - UV Protection Surcharge:
+    // Outdoor applications require polyaspartic UV shield topcoat (+20% on base system cost)
+    // This prevents yellowing and degradation from direct sunlight exposure
     const locationMultiplier = location === 'outdoor' ? 1.20 : 1.0;
     const locationFactorCost = Math.round(baseSystemCost * (locationMultiplier - 1.0));
 
@@ -85,9 +104,12 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
     const totalCost = Math.round(subtotal);
     const costPerSqFt = squareFeet > 0 ? Math.round((totalCost / squareFeet) * 100) / 100 : 0;
 
-    // Days calculation: Base 1 day + 1 day per 1,200 sq ft + prep
+    // EXECUTION TIME CALCULATION:
+    // Base: 1 day mobilization + 1 day per 1,200 sq ft installation capacity
+    // Additional days for complex substrate prep (tiles, old paint)
     let estimatedDays = Math.ceil(squareFeet / 1200) + 1;
     if (substrate === 'existing_tiles' || substrate === 'old_paint') estimatedDays += 1;
+    if (substrate === 'concrete_cracked' && squareFeet > 2000) estimatedDays += 1;
 
     return {
       grossBaseCost,
@@ -112,18 +134,86 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
     return `MTB-US-${randomCode}`;
   };
 
-  // Handle WhatsApp Business Notification with Prefilled Text
+  // Enhanced WhatsApp Message Builder with Complete Lead Data
+  const buildWhatsAppMessage = (): string => {
+    const code = getQuoteCode();
+    const sysName = language === 'EN' ? (selectedSystemObj.nameEn || selectedSystemObj.name) : selectedSystemObj.name;
+    const subName = language === 'EN' ? (selectedSubstrateObj.nameEn || selectedSubstrateObj.name) : selectedSubstrateObj.name;
+    
+    // Build location string with full address details
+    const addrParts: string[] = [];
+    if (streetAddress) addrParts.push(streetAddress);
+    if (city) addrParts.push(city);
+    addrParts.push(`${state}${zipCode ? ` ${zipCode}` : ''}`);
+    const locationStr = addrParts.join(', ');
+
+    // Format currency values properly
+    const totalFormatted = formatCurrency(breakdown.totalCost);
+    const perSqFtFormatted = `$${breakdown.costPerSqFt.toFixed(2)}`;
+    const savingsFormatted = breakdown.volumeDiscountAmount > 0 ? formatCurrency(breakdown.volumeDiscountAmount) : '$0';
+
+    if (language === 'EN') {
+      return `🏗️ *NEW QUOTE REQUEST - MTB FLOORS* 🏗️\n\n` +
+        `📋 *Quote Code:* ${code}\n` +
+        `📅 *Date:* ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+        `👤 *CLIENT INFORMATION:*\n` +
+        `• Name: ${clientName || 'Not provided'}\n` +
+        `• Phone: ${clientPhone || 'Not provided'}\n` +
+        `• Email: ${clientEmail || 'Not provided'}\n\n` +
+        `📍 *PROJECT LOCATION:*\n` +
+        `• Address: ${locationStr || 'To be confirmed'}\n\n` +
+        `📐 *PROJECT SPECIFICATIONS:*\n` +
+        `• Surface Area: ${squareFeet.toLocaleString('en-US')} sq ft\n` +
+        `• System Selected: ${sysName}\n` +
+        `• Substrate Condition: ${subName}\n` +
+        `• Location Type: ${location === 'outdoor' ? '☀️ Outdoor (UV Protection Required)' : '🏠 Indoor Standard'}\n\n` +
+        `💰 *INVESTMENT BREAKDOWN:*\n` +
+        `• Total Estimated Cost: ${totalFormatted} USD\n` +
+        `• Average Cost: ${perSqFtFormatted} / sq ft\n` +
+        `• Volume Discount Applied: ${breakdown.volumeDiscountPercent}% (${savingsFormatted} saved)\n` +
+        `• Substrate Prep: ${formatCurrency(breakdown.substratePrepCost)}\n` +
+        `• UV Protection: ${location === 'outdoor' ? formatCurrency(breakdown.locationFactorCost) : '$0'}\n\n` +
+        `⚙️ *TECHNICAL DETAILS:*\n` +
+        `• Compressive Strength: ${selectedSystemObj.psiStrength} PSI\n` +
+        `• Warranty: ${selectedSystemObj.warrantyYears} Years Written\n` +
+        `• Est. Installation Time: ${breakdown.estimatedDays} Business Days\n\n` +
+        `✅ I would like to schedule a technical evaluation visit and receive a formal on-site assessment.`;
+    } else {
+      return `🏗️ *NUEVA COTIZACIÓN - MTB FLOORS* 🏗️\n\n` +
+        `📋 *Código de Cotización:* ${code}\n` +
+        `📅 *Fecha:* ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
+        `👤 *INFORMACIÓN DEL CLIENTE:*\n` +
+        `• Nombre: ${clientName || 'No proporcionado'}\n` +
+        `• Teléfono: ${clientPhone || 'No proporcionado'}\n` +
+        `• Email: ${clientEmail || 'No proporcionado'}\n\n` +
+        `📍 *UBICACIÓN DEL PROYECTO:*\n` +
+        `• Dirección: ${locationStr || 'Por confirmar'}\n\n` +
+        `📐 *ESPECIFICACIONES DEL PROYECTO:*\n` +
+        `• Superficie: ${squareFeet.toLocaleString('en-US')} sq ft\n` +
+        `• Sistema Seleccionado: ${sysName}\n` +
+        `• Estado del Sustrato: ${subName}\n` +
+        `• Tipo de Ubicación: ${location === 'outdoor' ? '☀️ Exterior (Protección UV Requerida)' : '🏠 Interior Estándar'}\n\n` +
+        `💰 *DESGLOSE DE INVERSIÓN:*\n` +
+        `• Costo Total Estimado: ${totalFormatted} USD\n` +
+        `• Costo Promedio: ${perSqFtFormatted} / sq ft\n` +
+        `• Descuento por Volumen: ${breakdown.volumeDiscountPercent}% (${savingsFormatted} ahorrados)\n` +
+        `• Preparación Sustrato: ${formatCurrency(breakdown.substratePrepCost)}\n` +
+        `• Protección UV: ${location === 'outdoor' ? formatCurrency(breakdown.locationFactorCost) : '$0'}\n\n` +
+        `⚙️ *DETALLES TÉCNICOS:*\n` +
+        `• Resistencia Compresiva: ${selectedSystemObj.psiStrength} PSI\n` +
+        `• Garantía: ${selectedSystemObj.warrantyYears} Años por Escrito\n` +
+        `• Tiempo Est. Instalación: ${breakdown.estimatedDays} Días Hábiles\n\n` +
+        `✅ Quisiera agendar una visita técnica de evaluación y recibir una cotización formal en sitio.`;
+    }
+  };
+
+  // Handle WhatsApp Business Notification with Enhanced Prefilled Text
   const handleNotifyWhatsApp = () => {
     const code = getQuoteCode();
     if (!generatedQuoteId) setGeneratedQuoteId(code);
 
-    const sysName = language === 'EN' ? (selectedSystemObj.nameEn || selectedSystemObj.name) : selectedSystemObj.name;
-    const addrStr = streetAddress ? `${streetAddress}, ` : '';
-    const locText = city ? `${addrStr}${city}, ${state}` : `${addrStr}${state} (Zip ${zipCode || 'N/A'})`;
-    const message = language === 'EN'
-      ? `Hello MTB FLOORS, I just generated quote ${code} for ${squareFeet} sq ft of the ${sysName} system in ${locText}. My estimated investment is $${breakdown.totalCost.toLocaleString('en-US')} USD. I would like to schedule an evaluation visit.`
-      : `Hola MTB FLOORS, acabo de generar la cotización ${code} para ${squareFeet} sq ft del sistema ${sysName} en ${locText}. Mi presupuesto estimado es $${breakdown.totalCost.toLocaleString('en-US')} USD. Quisiera agendar la visita técnica de evaluación.`;
-    const whatsappUrl = `https://wa.me/18005556821?text=${encodeURIComponent(message)}`;
+    const message = buildWhatsAppMessage();
+    const whatsappUrl = `https://wa.me/13474844232?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -570,27 +660,59 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
                 </div>
               </div>
 
-              {/* Total Price Hero Box */}
-              <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200 text-center space-y-3">
-                <span className="text-xs text-stone-500 font-medium">
-                  {language === 'EN' ? 'Estimated Total Investment' : 'Inversión Total Estimada'}
-                </span>
-                <div className="text-4xl sm:text-5xl font-serif-heading font-bold text-stone-900 tracking-tight">
-                  ${breakdown.totalCost.toLocaleString('en-US')} <span className="text-sm font-mono text-[#007BFF]">USD</span>
+              {/* Total Price Hero Box - Enhanced Visual Feedback */}
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-stone-50 to-stone-100/80 border-2 border-stone-200 text-center space-y-3 shadow-inner">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs text-stone-500 font-medium uppercase tracking-wide">
+                    {language === 'EN' ? 'Estimated Total Investment' : 'Inversión Total Estimada'}
+                  </span>
                 </div>
-                <div className="text-xs font-mono text-stone-600">
-                  {language === 'EN' ? 'Average:' : 'Promedio:'} <span className="text-stone-900 font-bold">${breakdown.costPerSqFt.toFixed(2)} USD</span> / sq ft
+                
+                {/* Hero Total with Professional Formatting */}
+                <div className="relative">
+                  <div className="text-4xl sm:text-5xl font-serif-heading font-bold text-stone-900 tracking-tight">
+                    {formatCurrency(breakdown.totalCost)} <span className="text-base font-mono text-[#007BFF]">USD</span>
+                  </div>
+                  
+                  {/* Volume Discount Badge - Always Visible When Applied */}
+                  {breakdown.volumeDiscountPercent > 0 && (
+                    <div className="absolute -top-2 -right-2 sm:-right-4 animate-pulse">
+                      <div className="bg-emerald-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-1">
+                        <ArrowUpRight className="w-3 h-3" />
+                        -{breakdown.volumeDiscountPercent}%
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Cost Per Sq Ft with Context */}
+                <div className="flex items-center justify-center gap-2 text-xs font-mono text-stone-600 bg-white/60 rounded-lg py-1.5 px-3 inline-flex mx-auto">
+                  <Layers className="w-3.5 h-3.5 text-[#007BFF]" />
+                  <span>
+                    {language === 'EN' ? 'Avg:' : 'Prom:'} 
+                    <span className="text-stone-900 font-bold ml-1">${breakdown.costPerSqFt.toFixed(2)} USD/sq ft</span>
+                  </span>
                 </div>
 
+                {/* Savings Highlight Banner */}
+                {breakdown.volumeDiscountAmount > 0 && (
+                  <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                    <p className="text-[10px] text-emerald-800 font-semibold">
+                      🎉 {language === 'EN' ? 'You saved' : 'Ahorraste'} {formatCurrency(breakdown.volumeDiscountAmount)} {language === 'EN' ? 'with volume discount!' : 'con descuento por volumen!'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Conversion Funnel Immediate CTA Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-stone-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-stone-200/80">
                   <button
                     type="button"
                     onClick={handleNotifyWhatsApp}
-                    className="w-full min-h-[44px] px-3 py-2.5 rounded-xl font-heading font-bold text-xs text-white bg-emerald-700 hover:bg-emerald-600 shadow-sm transition-all flex items-center justify-center gap-1.5"
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl font-heading font-bold text-xs text-white bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 shadow-md transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
                   >
-                    <MessageSquare className="w-4 h-4 fill-white shrink-0" />
-                    <span>{language === 'EN' ? 'Send via WhatsApp / Email' : 'Enviar Presupuesto por WhatsApp / Email'}</span>
+                    <MessageSquare className="w-4 h-4 fill-white shrink-0 group-hover:scale-110 transition-transform" />
+                    <span>{language === 'EN' ? 'Send Quote via WhatsApp' : 'Enviar Cotización por WhatsApp'}</span>
                   </button>
 
                   <button
@@ -599,92 +721,179 @@ export const CalculatorSection: React.FC<CalculatorProps> = ({ initialSystemId }
                       const el = document.getElementById('showroom-movil');
                       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }}
-                    className="w-full min-h-[44px] px-3 py-2.5 rounded-xl font-heading font-bold text-xs text-stone-900 bg-amber-400 hover:bg-amber-300 shadow-sm transition-all flex items-center justify-center gap-1.5"
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl font-heading font-bold text-xs text-stone-900 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 shadow-md transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
                   >
-                    <Truck className="w-4 h-4 text-stone-900 shrink-0" />
-                    <span>{language === 'EN' ? 'Book Mobile Showroom with Samples' : 'Agendar Showroom Móvil con Muestras'}</span>
+                    <Truck className="w-4 h-4 text-stone-900 shrink-0 group-hover:translate-x-1 transition-transform" />
+                    <span>{language === 'EN' ? 'Book Mobile Showroom' : 'Agendar Showroom Móvil'}</span>
                   </button>
                 </div>
+                
+                {/* PDF Download CTA */}
+                <button
+                  type="button"
+                  onClick={handleGeneratePDF}
+                  className="w-full min-h-[42px] px-3 py-2 rounded-lg font-heading font-bold text-xs text-stone-700 bg-white border-2 border-stone-300 hover:border-[#007BFF] hover:text-[#007BFF] shadow-sm transition-all flex items-center justify-center gap-2 group"
+                >
+                  <Download className="w-4 h-4 text-stone-500 group-hover:text-[#007BFF] transition-colors" />
+                  <span>{language === 'EN' ? 'Download PDF Quote' : 'Descargar Cotización PDF'}</span>
+                </button>
               </div>
 
-              {/* Collapsible Technical Audit & Itemized Breakdown Accordion */}
-              <details className="group border border-stone-200 rounded-2xl bg-stone-50 overflow-hidden transition-all">
-                <summary className="p-3.5 cursor-pointer flex items-center justify-between font-serif-heading font-bold text-xs text-stone-900 hover:bg-stone-100 transition-colors select-none">
-                  <span className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-[#007BFF]" />
-                    <span>
-                      {language === 'EN'
-                        ? 'Technical Audit & Itemized Breakdown (Optional View)'
-                        : 'Informe Técnico & Desglose de Auditoría (Vista Opcional)'}
-                    </span>
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-stone-500 group-open:rotate-180 transition-transform" />
+              {/* Enhanced Collapsible Technical Audit & Itemized Breakdown Accordion */}
+              <details className="group border-2 border-stone-200 rounded-2xl bg-gradient-to-br from-stone-50 to-white overflow-hidden transition-all shadow-sm">
+                <summary className="p-4 cursor-pointer flex items-center justify-between font-serif-heading font-bold text-sm text-stone-900 hover:bg-stone-100/80 transition-colors select-none bg-gradient-to-r from-stone-100/50 to-transparent">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#007BFF]/10 flex items-center justify-center">
+                      <FileCheck className="w-4 h-4 text-[#007BFF]" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-medium text-stone-500 uppercase tracking-wide">
+                        {language === 'EN' ? 'Full Transparency Guarantee' : 'Garantía de Transparencia Total'}
+                      </span>
+                      <span>
+                        {language === 'EN'
+                          ? 'Technical Audit & Itemized Breakdown'
+                          : 'Informe Técnico & Desglose Detallado'}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-stone-400 group-open:rotate-180 transition-all duration-300" />
                 </summary>
 
-                <div className="p-4 border-t border-stone-200 space-y-2 text-xs bg-white">
+                <div className="p-5 border-t border-stone-200 space-y-3 bg-white/80">
                   
-                  {/* 1. Subtotal Area */}
-                  <div className="flex justify-between py-1.5 border-b border-stone-100">
-                    <span className="text-stone-600">
-                      {language === 'EN'
-                        ? `1. Base Area Subtotal (${squareFeet} sq ft):`
-                        : `1. Subtotal de Área Base (${squareFeet} sq ft):`}
-                    </span>
-                    <span className="font-mono text-stone-900 font-semibold">${breakdown.grossBaseCost.toLocaleString('en-US')} USD</span>
+                  {/* Header with Quote Info */}
+                  <div className="mb-4 p-3 bg-stone-900 rounded-xl text-white">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-stone-400">{language === 'EN' ? 'Quote Reference' : 'Referencia de Cotización'}</span>
+                      <span className="text-xs font-mono font-bold text-amber-300">{getQuoteCode()}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-stone-400">{language === 'EN' ? 'Project Size' : 'Tamaño del Proyecto'}</span>
+                      <span className="font-bold">{squareFeet.toLocaleString('en-US')} sq ft</span>
+                    </div>
                   </div>
 
-                  {/* 2. Descuento por Volumen (si aplica) */}
-                  {breakdown.volumeDiscountPercent > 0 && (
-                    <div className="flex justify-between py-1.5 border-b border-stone-100 text-emerald-700">
-                      <span className="font-semibold flex items-center gap-1">
-                        <Tag className="w-3.5 h-3.5" />
+                  {/* 1. Base Area Subtotal */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-stone-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-stone-100 flex items-center justify-center text-[10px] font-bold text-stone-600">1</div>
+                      <span className="text-stone-700 text-xs">
                         {language === 'EN'
-                          ? `2. Industrial Volume Discount (-${breakdown.volumeDiscountPercent}%):`
-                          : `2. Descuento por Volumen Industrial (-${breakdown.volumeDiscountPercent}%):`}
+                          ? `Base Area (${squareFeet.toLocaleString('en-US')} sq ft × $${selectedSystemObj.basePricePerSqFt.toFixed(2)})`
+                          : `Área Base (${squareFeet.toLocaleString('en-US')} sq ft × $${selectedSystemObj.basePricePerSqFt.toFixed(2)})`}
                       </span>
-                      <span className="font-mono font-bold">-${breakdown.volumeDiscountAmount.toLocaleString('en-US')} USD</span>
+                    </div>
+                    <span className="font-mono text-sm font-semibold text-stone-900">{formatCurrency(breakdown.grossBaseCost)}</span>
+                  </div>
+
+                  {/* 2. Volume Discount - Conditional */}
+                  {breakdown.volumeDiscountPercent > 0 && (
+                    <div className="flex justify-between items-center py-2.5 border-b border-stone-100 bg-emerald-500/5 -mx-2 px-2 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                          <ArrowUpRight className="w-3 h-3 text-emerald-600" />
+                        </div>
+                        <span className="text-emerald-800 text-xs font-semibold">
+                          {language === 'EN'
+                            ? `Volume Discount Tier ${breakdown.volumeDiscountPercent === 18 ? '(>2,000 sq ft)' : '(500-2,000 sq ft)'} (-${breakdown.volumeDiscountPercent}%)`
+                            : `Descuento por Volumen ${breakdown.volumeDiscountPercent === 18 ? '(>2,000 sq ft)' : '(500-2,000 sq ft)'} (-${breakdown.volumeDiscountPercent}%)`}
+                        </span>
+                      </div>
+                      <span className="font-mono text-sm font-bold text-emerald-700">-{formatCurrency(breakdown.volumeDiscountAmount)}</span>
                     </div>
                   )}
 
-                  {/* 3. Costo Acondicionamiento Sustrato */}
-                  <div className="flex justify-between py-1.5 border-b border-stone-100">
-                    <span className="text-stone-600 flex items-center gap-1">
-                      {language === 'EN' ? '3. Substrate Prep Cost:' : '3. Costo Acondicionamiento Sustrato:'}
+                  {/* 3. Substrate Preparation */}
+                  <div className={`flex justify-between items-center py-2.5 border-b border-stone-100 ${breakdown.substratePrepDiscountApplied ? 'bg-amber-500/5 -mx-2 px-2 rounded-lg' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-stone-100 flex items-center justify-center text-[10px] font-bold text-stone-600">
+                        {breakdown.substratePrepDiscountApplied ? '✓' : '3'}
+                      </div>
+                      <div>
+                        <span className="text-stone-700 text-xs block">
+                          {language === 'EN' ? `Substrate Prep (${selectedSubstrateObj.nameEn || selectedSubstrateObj.name})` : `Preparación Sustrato (${selectedSubstrateObj.name})`}
+                        </span>
+                        {breakdown.substratePrepDiscountApplied && (
+                          <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                            <ArrowUpRight className="w-3 h-3" />
+                            {language === 'EN' ? 'Logistics discount applied (-15%)' : 'Descuento logística aplicado (-15%)'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono text-sm font-semibold text-stone-900 block">{formatCurrency(breakdown.substratePrepCost)}</span>
                       {breakdown.substratePrepDiscountApplied && (
-                        <span className="text-[10px] text-emerald-700 font-mono font-bold">(-15%)</span>
+                        <span className="text-[10px] text-stone-500 line-through">
+                          {formatCurrency(Math.round(squareFeet * selectedSubstrateObj.extraPrepCostPerSqFt))}
+                        </span>
                       )}
-                    </span>
-                    <span className="font-mono text-stone-900 font-semibold">${breakdown.substratePrepCost.toLocaleString('en-US')} USD</span>
+                    </div>
                   </div>
 
-                  {/* 4. Tratamiento UV Exterior */}
-                  <div className="flex justify-between py-1.5 border-b border-stone-100">
-                    <span className="text-stone-600">
-                      {language === 'EN'
-                        ? `4. UV Topcoat (${location === 'outdoor' ? 'Outdoor' : 'Indoor'}):`
-                        : `4. Tratamiento UV (${location === 'outdoor' ? 'Exterior' : 'Interior'}):`}
+                  {/* 4. UV Protection Factor */}
+                  <div className={`flex justify-between items-center py-2.5 border-b border-stone-100 ${location === 'outdoor' ? 'bg-blue-500/5 -mx-2 px-2 rounded-lg' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-stone-100 flex items-center justify-center text-[10px] font-bold text-stone-600">
+                        {location === 'outdoor' ? '☀️' : '4'}
+                      </div>
+                      <div>
+                        <span className="text-stone-700 text-xs block">
+                          {language === 'EN' 
+                            ? `UV Protection ${location === 'outdoor' ? '(Polyaspartic Shield Required)' : '(Standard Indoor)'}`
+                            : `Protección UV ${location === 'outdoor' ? '(Escudo Poliaspártico)' : '(Interior Estándar)'}`}
+                        </span>
+                        {location === 'outdoor' && (
+                          <span className="text-[10px] text-blue-700 font-semibold">
+                            {language === 'EN' ? '+20% base cost for UV resistance' : '+20% costo base por resistencia UV'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`font-mono text-sm font-semibold ${location === 'outdoor' ? 'text-blue-700' : 'text-stone-400'}`}>
+                      {location === 'outdoor' ? formatCurrency(breakdown.locationFactorCost) : language === 'EN' ? 'Included' : 'Incluido'}
                     </span>
-                    <span className="font-mono text-stone-900 font-semibold">${breakdown.locationFactorCost.toLocaleString('en-US')} USD</span>
                   </div>
 
-                  {/* Mechanical & Safety Specs */}
-                  <div className="flex justify-between py-1.5 border-b border-stone-100 text-stone-700">
-                    <span>{language === 'EN' ? 'Compressive Resistance:' : 'Resistencia Compresiva:'}</span>
-                    <span className="font-mono font-bold text-stone-900">{selectedSystemObj.psiStrength}</span>
+                  {/* Technical Specifications Grid */}
+                  <div className="mt-4 grid grid-cols-2 gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] text-stone-500 uppercase tracking-wide font-semibold">
+                        <ShieldCheck className="w-3 h-3 text-[#007BFF]" />
+                        {language === 'EN' ? 'Compressive Strength' : 'Resistencia Compresión'}
+                      </div>
+                      <div className="text-lg font-bold text-stone-900 font-mono">{selectedSystemObj.psiStrength} <span className="text-xs font-normal text-stone-500">PSI</span></div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] text-stone-500 uppercase tracking-wide font-semibold">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        {language === 'EN' ? 'Installation Time' : 'Tiempo Instalación'}
+                      </div>
+                      <div className="text-lg font-bold text-stone-900 font-mono">{breakdown.estimatedDays} <span className="text-xs font-normal text-stone-500">{language === 'EN' ? 'days' : 'días'}</span></div>
+                    </div>
+                    
+                    <div className="space-y-1 col-span-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-stone-500 uppercase tracking-wide font-semibold">
+                        <Award className="w-3 h-3 text-emerald-600" />
+                        {language === 'EN' ? 'Written Warranty Coverage' : 'Cobertura Garantía Escrita'}
+                      </div>
+                      <div className="text-lg font-bold text-emerald-700 font-mono">{selectedSystemObj.warrantyYears} <span className="text-xs font-normal text-stone-500">{language === 'EN' ? 'years full coverage' : 'años cobertura total'}</span></div>
+                    </div>
                   </div>
 
-                  {/* Days & Warranties */}
-                  <div className="flex justify-between py-1.5 font-bold text-stone-900 pt-1">
-                    <span>{language === 'EN' ? 'Estimated Turnaround Time:' : 'Tiempo Estimado de Ejecución:'}</span>
-                    <span className="font-mono text-[#007BFF]">
-                      {breakdown.estimatedDays} {language === 'EN' ? 'Business Days' : 'Días Hábiles'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 font-bold text-stone-900">
-                    <span>{language === 'EN' ? 'Official Written Warranty:' : 'Garantía Oficial por Escrito:'}</span>
-                    <span className="font-mono text-emerald-700">
-                      {selectedSystemObj.warrantyYears} {language === 'EN' ? 'Years' : 'Años'}
-                    </span>
+                  {/* Total Summary Line */}
+                  <div className="mt-4 pt-4 border-t-2 border-stone-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-stone-900">
+                        {language === 'EN' ? 'TOTAL ESTIMATED INVESTMENT' : 'INVERSIÓN TOTAL ESTIMADA'}
+                      </span>
+                      <div className="text-right">
+                        <div className="text-2xl font-serif-heading font-bold text-stone-900">{formatCurrency(breakdown.totalCost)}</div>
+                        <div className="text-[10px] text-stone-500 font-mono">USD • {language === 'EN' ? '30-day validity' : 'validez 30 días'}</div>
+                      </div>
+                    </div>
                   </div>
 
                 </div>
